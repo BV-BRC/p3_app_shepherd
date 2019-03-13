@@ -44,7 +44,8 @@ endif
 
 all: binaries
 
-deploy-client:
+deploy-client: p3x-preload.so
+	cp p3x-preload.so $(DEPLOY_TARGET)/lib/p3x-preload.so
 	rm -f p3x-app-shepherd  
 	$(MAKE) p3x-app-shepherd
 	mv p3x-app-shepherd $(DEPLOY_TARGET)/bin/p3x-app-shepherd
