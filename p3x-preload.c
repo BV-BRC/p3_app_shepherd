@@ -49,9 +49,6 @@ static void stringbuf_append_ulong(struct stringbuf *sbuf, unsigned long v)
 
 static void send_output(struct stringbuf *sbuf)
 {
-    FILE *fp = fopen("/dev/tty", "w");
-    // fprintf(fp, "Pkt: '%s'\n", sbuf->buf);
-    fflush(fp);
     char *fifo = getenv("P3_SHEPHERD_FIFO");
     if (fifo)
     {
@@ -61,10 +58,7 @@ static void send_output(struct stringbuf *sbuf)
 	    int n = write(fd, sbuf->buf, sbuf->cur - sbuf->buf);
 	    close(fd);
 	}
-	else
-	    fprintf(fp, "cannot write: %s", strerror(errno));
     }
-    fclose(fp);
 }    
 
 static void stringbuf_append_argv(struct stringbuf *sbuf, char *const argv[])
