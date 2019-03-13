@@ -25,7 +25,7 @@ AppClient::AppClient(boost::asio::io_service &ios, const std::string &url, const
 {
     if (url_utilities::parse_url(url, parsed_url_))
     {
-	std::cout << parsed_url_ << std::endl;
+	// std::cout << parsed_url_ << std::endl;
 
 	try {
 	    sync_resolve_url(parsed_url_);
@@ -48,7 +48,7 @@ AppClient::AppClient(boost::asio::io_service &ios, const std::string &url, const
 
 AppClient::~AppClient()
 {
-    std::cerr << "destroy AppClient\n";
+    // std::cerr << "destroy AppClient\n";
     current_request_ = 0;
 }
     
@@ -67,8 +67,8 @@ void AppClient::sync_resolve_url(const url_utilities::parsed_url &p)
     }
 
     resolved_host_ = resolver_.resolve(p.domain, port);
-    for (auto x: resolved_host_)
-	std::cerr << x.endpoint() << std::endl;
+    //for (auto x: resolved_host_)
+    // std::cerr << x.endpoint() << std::endl;
 }
 
 void AppClient::write_block(const std::string &key, const std::string &value, bool truncate)
@@ -81,7 +81,7 @@ void AppClient::write_block(const std::string &key, const std::string &value, bo
 
 void AppClient::write_block(std::shared_ptr<OutputBuffer> buf)
 {
-    std::cout << "write block: " << buf->as_string(buf->size()) << std::endl;
+    // std::cout << "write block: " << buf->as_string(buf->size()) << std::endl;
 
     buffer_queue_.push(buf);
 
@@ -90,7 +90,7 @@ void AppClient::write_block(std::shared_ptr<OutputBuffer> buf)
 
 void AppClient::process_queue()
 {
-    std::cerr << "process queue " << this << " status=" << status_ << " size=" << buffer_queue_.size() << std::endl;
+    // std::cerr << "process queue " << this << " status=" << status_ << " size=" << buffer_queue_.size() << std::endl;
     if (status_ == Status::InProgress)
 	return;
 
@@ -122,14 +122,14 @@ void AppClient::process_queue()
     if (!buf->truncate())
 	path += "/data";
     
-    std::cerr << "post to: " << path << std::endl;
+    // std::cerr << "post to: " << path << std::endl;
     current_request_->post(is_ssl, parsed_url_.domain, resolved_host_, path, buf);
 }
 
 void AppClient::on_success(const AppRequest::response_type &response, std::shared_ptr<OutputBuffer> buf)
 {
-    std::cerr << "Success!\n";
-    std::cerr << response.body() << std::endl;
+    // std::cerr << "Success!\n";
+    // std::cerr << response.body() << std::endl;
     buffer_queue_.pop();
     current_request_ = 0;
     status_ = Status::Live;
@@ -138,6 +138,6 @@ void AppClient::on_success(const AppRequest::response_type &response, std::share
 
 void AppClient::on_failure(std::shared_ptr<OutputBuffer> buf)
 {
-    std::cerr << "Failure.\n";
+    // std::cerr << "Failure.\n";
     current_request_ = 0;
 }

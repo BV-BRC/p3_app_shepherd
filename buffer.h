@@ -16,10 +16,12 @@ class OutputBufferT : private BufferCountHolder
 {
 public:
 OutputBufferT(const std::string &key) : key_(key), size_(0), buffer_id_(next_buffer_id_++), truncate_(false) {
-	std::cerr << "make buffer " << key << " " << buffer_id_ << "\n";
+	// std::cerr << "make buffer " << key << " " << buffer_id_ << "\n";
 	clear();
     }
-    ~OutputBufferT() { 	std::cerr << "destroy buffer " << key_ << " " << buffer_id_ << "\n"; }
+    ~OutputBufferT() {
+	// std::cerr << "destroy buffer " << key_ << " " << buffer_id_ << "\n";
+    }
 
 
     void clear() { memset(buffer_, 0, N + 1); }

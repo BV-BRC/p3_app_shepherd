@@ -17,6 +17,8 @@
 #include <stdio.h>
 #include <sys/time.h>
 
+#include "date.h"
+
 static unsigned long p3x_calc_start_time_offset();
 
 namespace fs = boost::filesystem;
@@ -181,6 +183,28 @@ double PidInfo::elapsed(const p3_time_point &now) const
 {
     auto elap = now - start_time_;
     return std::chrono::duration<double>(elap).count();
+}
+
+void PidInfo::write_tabular(std::ostream &os)
+{
+    struct tm tm;
+
+    p3_clock::time_point now = active() ? p3_clock::now() : finish_time();
+    using namespace date;
+
+    os << pid_ << "\t"
+       << name_ << "\t"
+       << exe_ << "\t"
+       << ppid_ << "\t"
+       << utime_ << "\t"
+       << stime_ << "\t"
+       << start_time_ << "\t"
+       << now << "\t"
+       << elapsed(now) << "\t"
+       << user_utilization(now) << "\t"
+       << sys_utilization(now)  << "\t"
+       << have_precise_finish_data_ << "\t"
+       << valid_ << "\n";
 }
 
 SystemProcessState::SystemProcessState()
@@ -377,3 +401,4 @@ static unsigned long p3x_calc_start_time_offset()
     }
     return 0;
 }
+

@@ -50,6 +50,8 @@ public:
     double sys_utilization(const p3_time_point &now) const;
     double elapsed(const p3_time_point &now) const;
 
+    void write_tabular(std::ostream &os);
+
 private:
     pid_t pid_;
     pid_t ppid_;

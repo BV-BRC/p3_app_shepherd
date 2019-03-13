@@ -13,6 +13,7 @@ STARMAN_WORKERS = 5
 
 #DATA_API_URL = https://www.patricbrc.org/api
 DATA_API_URL = https://p3.theseed.org/services/data_api
+APP_SERVICE_URL = https://p3.theseed.org/services/app_service
 
 BUILD_TOOLS = $(DEPLOY_RUNTIME)/gcc-4.9.4
 CXX = $(BUILD_TOOLS)/bin/g++
@@ -35,6 +36,23 @@ LIBS = $(BOOST)/lib/libboost_system.a \
 	$(BOOST)/lib/libboost_system.a \
 	-lpthread
 
+ifdef AUTO_DEPLOY_CONFIG
+CXX_DEFINES = -DAPP_SERVICE_URL='"$(APP_SERVICE_URL)"' -DDATA_API_URL='"$(DATA_API_URL)"' -DDEPLOY_LIBDIR='"$(TARGET)/lib"'
+else
+CXX_DEFINES = -DAPP_SERVICE_URL='"$(APP_SERVICE_URL)"' -DDATA_API_URL='"$(DATA_API_URL)"' -DDEPLOY_LIBDIR='"$(CURDIR)"'
+endif
+
+all: binaries
+
+deploy-client:
+	rm -f p3x-app-shepherd  
+	$(MAKE) p3x-app-shepherd
+	mv p3x-app-shepherd $(DEPLOY_TARGET)/bin/p3x-app-shepherd
+
+deply-service:
+
+binaries: $(TOP_DIR)/bin/p3x-app-shepherd $(TOP_DIR)/bin/p3x-preload.so
+
 tj: tj.cc
 	PATH=$(BUILD_TOOLS)/bin:$$PATH $(CXX)  -g -o $@ $^ $(CXXFLAGS) $(LDFLAGS) $(CXX_LDFLAGS) $(LIBS)
 
@@ -49,8 +67,11 @@ tcli: tcli.o app_client.o app_request.o buffer.o
 	PATH=$(BUILD_TOOLS)/bin:$$PATH $(CXX) -g -o $@ $^ $(CXXFLAGS) $(LDFLAGS) $(CXX_LDFLAGS) $(LIBS) -lssl -lcrypto
 tcli.o: app_client.h app_request.h buffer.h
 
-p3x-app-shepherd: p3x-app-shepherd.o pidinfo.o app_client.o buffer.o app_request.o
-	PATH=$(BUILD_TOOLS)/bin:$$PATH $(CXX) -g -o $@ $^ $(CXXFLAGS) $(LDFLAGS) $(CXX_LDFLAGS) $(LIBS) -lssl -lcrypto
+p3x-app-shepherd: p3x-app-shepherd.o pidinfo.o app_client.o buffer.o app_request.o deploy_data.cc 
+	PATH=$(BUILD_TOOLS)/bin:$$PATH $(CXX) $(CXX_DEFINES) -g -o $@ $^ $(CXXFLAGS) $(LDFLAGS) $(CXX_LDFLAGS) $(LIBS) -lssl -lcrypto
+
+$(TOP_DIR)/bin/%: %
+	cp $^ $@
 
 p3x-app-shepherd.o: pidinfo.h clock.h app_client.h buffer.h app_request.h
 

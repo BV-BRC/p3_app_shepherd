@@ -28,6 +28,7 @@
 #include "pidinfo.h"
 #include "app_client.h"
 #include "buffer.h"
+#include "deploy_data.h"
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
@@ -66,7 +67,7 @@ void AppOptions::parse(int argc, char *argv[])
     std::string sout, serr;
     desc.add_options()
 	("help,h", "show this help message")
-	("app-service", po::value<std::string>(&app_service_url), "Application service URL")
+	("app-service", po::value<std::string>(&app_service_url)->default_value(deploy_app_service_url), "Application service URL")
 	("task-id", po::value<std::string>(&task_id), "Task ID")
 	("stdout-file", po::value<std::string>(&sout), "File to which standard output is to be written")
 	("stderr-file", po::value<std::string>(&serr), "File to which standard error is to be written")
@@ -134,6 +135,10 @@ public:
 	fs::remove(fifo_path_);
     }
 
+    void locate_preload(const char *path) {
+	preload_so_ = deploy_libdir + "/p3x-preload.so";
+    }
+    
     void validate_command() {
 	if (opt_.command.find('/') != std::string::npos)
 	{
@@ -198,7 +203,7 @@ public:
 	{
 	    double utime = (double) ru.ru_utime.tv_sec + ((double) ru.ru_utime.tv_usec) * 1e-6;
 	    double stime = (double) ru.ru_stime.tv_sec + ((double) ru.ru_stime.tv_usec) * 1e-6;
-	    std::cerr << "   utime=" << utime << " stime=" << stime << std::endl;
+	    // std::cerr << "   utime=" << utime << " stime=" << stime << std::endl;
 	    app_client_->write_block("dynamic_utilization",
 				     str(boost::format("%1$f\t%2%\t%3%\n")
 					 % (1e-6 * (double) std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count())
@@ -208,19 +213,22 @@ public:
 
 	double utime = 0.0;
 	double stime = 0.0;
-	std::cerr << "process history\n";
+	// std::cerr << "process history\n";
 
+	std::ostringstream ostr;
 	for (auto x: history_.status())
 	{
 	    auto pid = x.first;
 	    auto &info = x.second;
 	    std::cerr << info << std::endl;
-	    app_client_->write_block("runtime_summary", str(boost::format("%1%\n") % info));
+	    info.write_tabular(ostr);
+	    // app_client_->write_block("runtime_summary", str(boost::format("%1%\n") % info));
 	    utime += info.utime();
 	    stime += info.stime();
 	}
-	std::cerr << "aggregate utime=" << utime << " stime=" << stime << std::endl;
-	app_client_->write_block("runtime_summary", str(boost::format("aggregate utime=%1% stime=%2%\n") % utime % stime));
+	app_client_->write_block("runtime_summary", ostr.str());
+	// std::cerr << "aggregate utime=" << utime << " stime=" << stime << std::endl;
+	app_client_->write_block("aggregate_times", str(boost::format("aggregate utime=%1% stime=%2%\n") % utime % stime));
     }
 	
 
@@ -229,7 +237,7 @@ public:
 	double utime = 0.0, stime = 0.0;
 	history_.check();
 	history_.get_cumulative_times(utime, stime);
-	std::cerr << "check: " << utime << " " << stime << std::endl;
+	// std::cerr << "check: " << utime << " " << stime << std::endl;
 	auto now = p3_clock::now();
 	app_client_->write_block("dynamic_utilization",
 				 str(boost::format("%1$f\t%2%\t%3%\n")
@@ -246,7 +254,7 @@ public:
 	{
 	    double utime = (double) ru.ru_utime.tv_sec + ((double) ru.ru_utime.tv_usec) * 1e-6;
 	    double stime = (double) ru.ru_stime.tv_sec + ((double) ru.ru_stime.tv_usec) * 1e-6;
-	    std::cerr << "   utime=" << utime << " stime=" << stime << std::endl;
+	    // std::cerr << "   utime=" << utime << " stime=" << stime << std::endl;
 	}
 
 	*/
@@ -275,7 +283,7 @@ public:
 	    // Check for child having finished.
 	    if (pipes_waiting_ == 0)
 	    {
-		std::cerr << "Child is finished\n";
+		// std::cerr << "Child is finished\n";
 		exiting_ = true;
 		measurement_timer_.cancel();
 		fifo_desc_.cancel();
@@ -418,7 +426,7 @@ public:
 			   bp::args = opt_.parameters,
 			   bp::std_out > stdout_pipe_, 
 			   bp::std_err > stderr_pipe_,
-			   bp::env["LD_PRELOAD"] = "./p3x-preload.so",
+			   bp::env["LD_PRELOAD"] = preload_so_,
 			   bp::env["P3_SHEPHERD_FIFO"] = fifo_path_.string()
 	    );
     
@@ -516,6 +524,7 @@ private:
     ProcessHistory history_;
 
     std::shared_ptr<OutputBuffer> fifo_buf_;
+    std::string preload_so_;
 };
 
 int main(int argc, char *argv[])
@@ -526,6 +535,7 @@ int main(int argc, char *argv[])
     boost::asio::io_service ios;
 
     ExecutionManager mgr(opt, ios);
+    mgr.locate_preload(argv[0]);
 
     mgr.start_fifo_listener();
 

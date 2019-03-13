@@ -77,7 +77,7 @@ void AppRequest::on_ssl_connect(beast::error_code ec)
 	return;
     }
 
-    std::cerr << "Got connect\n";
+    // std::cerr << "Got connect\n";
     // Perform the SSL handshake
     stream_.async_handshake(
 	ssl::stream_base::client,
@@ -105,7 +105,7 @@ void AppRequest::on_ssl_handshake(beast::error_code ec)
     fclose(fp);
     */
 
-    std::cerr << "got handshake\n";
+    // std::cerr << "got handshake\n";
     // Send the HTTP request to the remote host
     http::async_write(stream_, req_,
 		      std::bind(
@@ -124,7 +124,7 @@ void AppRequest::on_ssl_write(
     if(ec)
 	return fail(ec, "write");
 
-    std::cerr << "got write\n";
+    // std::cerr << "got write\n";
     // Receive the HTTP response
     http::async_read(stream_, buffer_, res_,
 		     std::bind(
@@ -138,12 +138,14 @@ void AppRequest::on_ssl_read(
     beast::error_code ec,
     std::size_t bytes_transferred)
 {
-    std::cerr << "read " << ec << " " << bytes_transferred << std::endl;
-    for (auto x = res_.begin(); x != res_.end(); x++)
-    {
-	std::cerr << x->name() << ": " << x->value() << "\n";
+    if (0) {
+	std::cerr << "read " << ec << " " << bytes_transferred << std::endl;
+	for (auto x = res_.begin(); x != res_.end(); x++)
+	{
+	    std::cerr << x->name() << ": " << x->value() << "\n";
+	}
+	std::cerr << res_.body() << std::endl;
     }
-    std::cerr << res_.body() << std::endl;
     boost::ignore_unused(bytes_transferred);
     
     if(ec)
@@ -151,7 +153,7 @@ void AppRequest::on_ssl_read(
 	if ((ec.category() == boost::asio::error::get_ssl_category())
 	    && (ERR_GET_REASON(ec.value()) == SSL_R_SHORT_READ))
 	{
-	    std::cerr << "SSL short read\n";
+	    // std::cerr << "SSL short read\n";
 	}
 	else
 	{
@@ -177,7 +179,7 @@ void AppRequest::on_ssl_shutdown(beast::error_code ec)
 {
     if(ec == net::error::eof)
     {
-	std::cerr << "got eof\n";
+	// std::cerr << "got eof\n";
 	// Rationale:
 	// http://stackoverflow.com/questions/25587403/boost-asio-ssl-async-shutdown-always-finishes-with-an-error
 	ec.assign(0, ec.category());
@@ -186,7 +188,7 @@ void AppRequest::on_ssl_shutdown(beast::error_code ec)
 	return fail(ec, "shutdown");
     
     // If we get here then the connection is closed gracefully
-    std::cerr << "Shutdown properly complete\n";
+    // std::cerr << "Shutdown properly complete\n";
 }
 
 void AppRequest::on_nonssl_connect(boost::system::error_code ec)
