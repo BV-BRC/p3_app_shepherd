@@ -426,6 +426,7 @@ public:
 			   bp::args = opt_.parameters,
 			   bp::std_out > stdout_pipe_, 
 			   bp::std_err > stderr_pipe_,
+			   bp::env["P3_SHEPHERD_PID"] = std::to_string(getpid()),
 			   bp::env["LD_PRELOAD"] = preload_so_,
 			   bp::env["P3_SHEPHERD_FIFO"] = fifo_path_.string()
 	    );
