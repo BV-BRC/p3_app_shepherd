@@ -218,10 +218,23 @@ public:
 	std::ostringstream ostr;
 	for (auto x: history_.status())
 	{
+	    std::ostringstream this_str;
 	    auto pid = x.first;
 	    auto &info = x.second;
 	    std::cerr << info << std::endl;
-	    info.write_tabular(ostr);
+	    info.write_tabular(this_str);
+
+	    auto sz = this_str.tellp();
+	    if (ostr.tellp() + sz >= OutputBufferSize)
+	    {
+		// flush this data and start a new block.
+		
+		app_client_->write_block("runtime_summary", ostr.str());
+		ostr.str("");
+		ostr.clear();
+	    }
+	    ostr << this_str.str();
+	    
 	    // app_client_->write_block("runtime_summary", str(boost::format("%1%\n") % info));
 	    utime += info.utime();
 	    stime += info.stime();
