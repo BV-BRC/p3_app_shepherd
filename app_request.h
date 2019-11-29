@@ -27,7 +27,7 @@ class AppRequest : public std::enable_shared_from_this<AppRequest>
 public:
     typedef boost::beast::http::response<boost::beast::http::string_body> response_type;
     typedef std::function<void(const response_type &)> success_cb;
-    typedef std::function<void()> failure_cb;
+    typedef std::function<void(const response_type &)> failure_cb;
     
     explicit AppRequest(boost::asio::io_context& ioc, boost::asio::ssl::context& ctx,
 			success_cb on_success, failure_cb on_failure);
@@ -56,6 +56,8 @@ private:
     boost::beast::http::request<boost::beast::http::buffer_body> req_;
 
     response_type res_;
+
+    std::string auth_header_;
 
     void on_ssl_connect(boost::beast::error_code ac);
     void on_ssl_handshake(boost::beast::error_code ec);

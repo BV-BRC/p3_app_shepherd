@@ -10,6 +10,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/process.hpp>
+#include <boost/process/extend.hpp>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <boost/format.hpp>
@@ -33,6 +34,12 @@
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 namespace bp = boost::process;
+
+static void alarm_handler(int a)
+{
+    std::cerr << "Exiting on alarm\n";
+    exit(0);
+}
 
 class AppOptions
 {
@@ -71,7 +78,7 @@ void AppOptions::parse(int argc, char *argv[])
 	("task-id", po::value<std::string>(&task_id), "Task ID")
 	("stdout-file", po::value<std::string>(&sout), "File to which standard output is to be written")
 	("stderr-file", po::value<std::string>(&serr), "File to which standard error is to be written")
-	("measurement-interval", po::value<int>(&measurement_interval)->default_value(10), "Resource measurement interval")
+	("measurement-interval", po::value<int>(&measurement_interval)->default_value(60), "Resource measurement interval")
 	;
 
     po::options_description hidden;
@@ -122,18 +129,24 @@ public:
     ExecutionManager(const AppOptions &opt, boost::asio::io_service &ios) :
 	opt_(opt),
 	measurement_timer_(ios),
+	kill_child_timer_(ios),
+//	quit_timer_(ios),
+	signal_set_(ios),
 	ios_(ios),
 	app_client_(std::make_shared<AppClient>(ios, opt.app_service_url, opt.task_id)),
 	stdout_pipe_(ios),
 	stderr_pipe_(ios),
 	fifo_desc_(ios),
 	pipes_waiting_(2),
-	exiting_(false) {
+	exiting_(false),
+	exit_code_(0) {
     }
 
     ~ExecutionManager() {
 	fs::remove(fifo_path_);
     }
+
+    int exit_code() { return exit_code_; }
 
     void locate_preload(const char *path) {
 	preload_so_ = deploy_libdir + "/p3x-preload.so";
@@ -177,6 +190,13 @@ public:
 						      boost::asio::placeholders::error));
 	}
     }
+    void handle_quit(const boost::system::error_code& e) {
+	if (!e)
+	{
+	    std::cerr << "quitting\n";
+	    ios_.stop();
+	}
+    }
 
     /*
      * Invoked when the child process completes.
@@ -190,10 +210,21 @@ public:
 	 * pipes being closed; it's possible that they were closed but the process continues;
 	 */
 
-	child_.wait();
-	int rc = child_.exit_code();
-	std::cout << "exit code=" << rc << std::endl;
-	app_client_->write_block("exitcode", std::to_string(rc) + "\n", true);
+	std::error_code ec;
+	child_.wait(ec);
+	if (ec)
+	{
+	    std::cout << "child error code " << ec << "\n";
+	    app_client_->write_block("exitcode", "-1\n", true);
+	    exit_code_ = -1;
+	}
+	else
+	{
+	    int rc = child_.exit_code();
+	    std::cout << "exit code=" << rc << std::endl;
+	    app_client_->write_block("exitcode", std::to_string(rc) + "\n", true);
+	    exit_code_ = rc;
+	}
 	
 	auto now = p3_clock::now();
 	struct rusage ru;
@@ -204,7 +235,7 @@ public:
 	    double utime = (double) ru.ru_utime.tv_sec + ((double) ru.ru_utime.tv_usec) * 1e-6;
 	    double stime = (double) ru.ru_stime.tv_sec + ((double) ru.ru_stime.tv_usec) * 1e-6;
 	    // std::cerr << "   utime=" << utime << " stime=" << stime << std::endl;
-	    app_client_->write_block("dynamic_utilization",
+	    app_client_->write_block("total_utilization",
 				     str(boost::format("%1$f\t%2%\t%3%\n")
 					 % (1e-6 * (double) std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count())
 					 % utime
@@ -242,6 +273,13 @@ public:
 	app_client_->write_block("runtime_summary", ostr.str());
 	// std::cerr << "aggregate utime=" << utime << " stime=" << stime << std::endl;
 	app_client_->write_block("aggregate_times", str(boost::format("aggregate utime=%1% stime=%2%\n") % utime % stime));
+
+	/*
+	 * Set a timer to enforce a quit out of the application if we otherwise hang.
+	 * We use the alarm signal since it's completely unconditional.
+	 */
+	signal(SIGALRM, &alarm_handler);
+	alarm(60);
     }
 	
 
@@ -296,10 +334,13 @@ public:
 	    // Check for child having finished.
 	    if (pipes_waiting_ == 0)
 	    {
-		// std::cerr << "Child is finished\n";
+		std::cerr << "Child is finished\n";
 		exiting_ = true;
+		signal_set_.cancel();
+		signal_set_.clear();
 		measurement_timer_.cancel();
 		fifo_desc_.cancel();
+		kill_child_timer_.cancel();
 		child_complete();
 	    }
 	}
@@ -430,12 +471,60 @@ public:
 	}
     }
 
+    /*
+     * We set up handlers for the usual SIGINT SIGTERM SIGHUP.
+     * Forward to the child, and set up a timer to send a final SIGKILL and
+     * unconditionally exit.
+     */
+
+    void handle_kill_child(const boost::system::error_code& e) {
+	if (e == boost::asio::error::operation_aborted)
+	{
+	    // std::cerr << "timer aborted\n";
+	    return;
+	}
+	child_.terminate();
+	exit(1);
+    }
+    
+    void handle_signal(const boost::system::error_code& error, int signal_number) {
+	if (!error)
+	{
+	    std::cerr << "received signal " << signal_number << "\n";
+
+	    pid_t pid = child_.id();
+
+	    kill_child_timer_.expires_from_now(boost::posix_time::seconds(5));
+	    kill_child_timer_.async_wait(boost::bind(&ExecutionManager::handle_kill_child,
+						     this,
+						     boost::asio::placeholders::error));
+	    std::cerr << "send signal to " << pid << "\n";
+	    ::kill(pid, SIGTERM);
+	}
+    }
+					 
+    void setup_signal_handlers() {
+	
+	signal_set_.add(SIGINT);
+	signal_set_.add(SIGTERM);
+	signal_set_.add(SIGHUP);
+	signal_set_.async_wait(boost::bind(&ExecutionManager::handle_signal,
+					   this, boost::asio::placeholders::error, boost::asio::placeholders::signal_number));
+    }
+
     void start_child() {
 
 	auto stdout_buf = std::make_shared<OutputBuffer>("stdout");
 	auto stderr_buf = std::make_shared<OutputBuffer>("stderr");
 
 	child_ = bp::child(cmd_path_.string(),
+			   boost::process::extend::on_exec_setup = [this](auto & exec) {
+			       std::cerr << "Would close fifo pipe pid=" << getpid() << " parent=" << getppid() << "\n";
+			       int fd = fifo_desc_.native_handle();
+			       std::cerr << "closing fd " << fd << "\n";
+			       //fifo_desc_.close();
+			       close(fd);
+			   },
 			   bp::args = opt_.parameters,
 			   bp::std_out > stdout_pipe_, 
 			   bp::std_err > stderr_pipe_,
@@ -473,8 +562,17 @@ public:
 						  this,
 						  boost::asio::placeholders::error));
 
+	/*
+	 * Write initial timestamp into utilization file
+	 */
+	auto now = p3_clock::now();
+	app_client_->write_block("total_utilization",
+				 str(boost::format("%1$f\t%2%\t%3%\n")
+				     % (1e-6 * (double) std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count())
+				     % 0.0
+				     % 0.0));
     }
-
+    
     void open_fifo() {
 	int fd = open(fifo_path_.c_str(), O_RDONLY | O_NONBLOCK);
 	if (fd < 0)
@@ -521,6 +619,9 @@ private:
     AppOptions opt_;
     fs::path cmd_path_;
     boost::asio::deadline_timer measurement_timer_;
+    boost::asio::deadline_timer kill_child_timer_;
+//    boost::asio::deadline_timer quit_timer_;
+    boost::asio::signal_set signal_set_;
     boost::asio::io_service &ios_;
 
     std::shared_ptr<AppClient> app_client_;
@@ -534,6 +635,7 @@ private:
     boost::asio::posix::stream_descriptor fifo_desc_;
 
     bp::child child_;
+    int exit_code_;
 
     ProcessHistory history_;
 
@@ -554,6 +656,7 @@ int main(int argc, char *argv[])
     mgr.start_fifo_listener();
 
     mgr.validate_command();
+    mgr.setup_signal_handlers();
     mgr.start_child();
 
     // We'd like to resolve our fqdn
@@ -561,7 +664,7 @@ int main(int argc, char *argv[])
     std::string host(boost::asio::ip::host_name());
     boost::asio::ip::tcp::resolver resolver(ios);
     resolver.async_resolve(host, "", boost::asio::ip::tcp::resolver::flags::canonical_name,
-			   [&mgr, &host](const boost::system::error_code &ec,
+			   [&mgr, &host, &resolver](const boost::system::error_code &ec,
 					 boost::asio::ip::tcp::resolver::iterator iter)
 			   {
 			       auto ac = mgr.app_client();
@@ -574,9 +677,11 @@ int main(int argc, char *argv[])
 			       {
 				   ac->write_block("hostname", iter->host_name() + "\n", true);
 			       }
+			       resolver.cancel();
 			   });
 
     ios.run();
     // int res = child.exit_code();
     // std::cout << "exit code " << res << std::endl;
+    return mgr.exit_code();
 }

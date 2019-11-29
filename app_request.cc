@@ -18,7 +18,15 @@ AppRequest::AppRequest(boost::asio::io_context& ioc, boost::asio::ssl::context& 
 	, socket_(ioc)
 	, success_cb_(on_success)
 	, failure_cb_(on_failure)
+	, auth_header_("")
 {
+    const char *token = getenv("P3_AUTH_TOKEN");
+    if (!token)
+	token = getenv("KB_AUTH_TOKEN");
+    if (token)
+    {
+	auth_header_ = std::string("OAuth ") + token;
+    }
 }
 
 void AppRequest::post(bool use_ssl, const std::string &host,
@@ -47,6 +55,8 @@ void AppRequest::post(bool use_ssl, const std::string &host,
     req_.set(http::field::host, host);
     req_.set(http::field::user_agent, "p3x-app-shepherd");
     req_.set(http::field::content_length, std::to_string(buffer->size()));
+    if (!auth_header_.empty())
+	req_.set(http::field::authorization, auth_header_);
 
     if (use_ssl)
     {
@@ -76,7 +86,7 @@ void AppRequest::on_ssl_connect(beast::error_code ec)
 	fail(ec, "connect");
 	return;
     }
-
+    
     // std::cerr << "Got connect\n";
     // Perform the SSL handshake
     stream_.async_handshake(
@@ -249,7 +259,7 @@ void AppRequest::on_nonssl_read(
 void AppRequest::fail(beast::error_code ec, const std::string &what)
 {
     std::cerr << what << ": " << ec.message() << "\n";
-    boost::asio::dispatch(ioc_, failure_cb_);
+    boost::asio::dispatch(ioc_, std::bind(failure_cb_, res_));
 }
 
 

@@ -33,6 +33,7 @@ OutputBufferT(const std::string &key) : key_(key), size_(0), buffer_id_(next_buf
     char *data() { return buffer_; }
     const std::string &key() { return key_; }
     void set(const std::string &val) {
+	std::cerr << "set value size " << val.size() << "\n";
 	val.copy(buffer_, N);
 	size_ = val.size();
     }

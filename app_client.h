@@ -34,7 +34,7 @@ private:
     void process_queue();
 
     void on_success(const AppRequest::response_type &response, std::shared_ptr<OutputBuffer> buf);
-    void on_failure(std::shared_ptr<OutputBuffer> buf);
+    void on_failure(const AppRequest::response_type &response, std::shared_ptr<OutputBuffer> buf);
 
     boost::asio::io_service &ios_;
     boost::asio::ip::tcp::resolver resolver_;

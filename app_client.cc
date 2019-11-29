@@ -114,7 +114,7 @@ void AppClient::process_queue()
     status_ = Status::InProgress;
     current_request_ = std::make_shared<AppRequest>(ios_, ssl_context_,
 						    std::bind(&AppClient::on_success, shared_from_this(), std::placeholders::_1, buf),
-						    std::bind(&AppClient::on_failure, shared_from_this(), buf));
+						    std::bind(&AppClient::on_failure, shared_from_this(), std::placeholders::_1, buf));
 	
     bool is_ssl = (parsed_url_.protocol == "https");
 
@@ -122,7 +122,7 @@ void AppClient::process_queue()
     if (!buf->truncate())
 	path += "/data";
     
-    // std::cerr << "post to: " << path << std::endl;
+    // std::cerr << "post to: " << path << " size=" << buf->size() << std::endl;
     current_request_->post(is_ssl, parsed_url_.domain, resolved_host_, path, buf);
 }
 
@@ -136,8 +136,12 @@ void AppClient::on_success(const AppRequest::response_type &response, std::share
     boost::asio::dispatch(ios_, std::bind(&AppClient::process_queue, shared_from_this()));
 }
 
-void AppClient::on_failure(std::shared_ptr<OutputBuffer> buf)
+void AppClient::on_failure(const AppRequest::response_type &response, std::shared_ptr<OutputBuffer> buf)
 {
-    // std::cerr << "Failure.\n";
+    std::cerr << "Failure.\n";
+    std::cerr << response.body() << std::endl;
+
     current_request_ = 0;
+    // Just set to live for now; need to see what the error was. This will end up in a retry.
+    status_ = Status::Live;
 }
