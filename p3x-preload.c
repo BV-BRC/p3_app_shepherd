@@ -146,7 +146,7 @@ void exit(int status)
     (*original_exit)(status);
 }
 
-__attribute__((constructor)) void init(int argc, char *const argv[], char *const envp[])
+__attribute__((constructor)) void _p3x_preload_init(int argc, char *const argv[], char *const envp[])
 {
     char b[100];
     *b = 0;
