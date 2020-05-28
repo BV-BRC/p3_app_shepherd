@@ -20,12 +20,12 @@ CXX = $(BUILD_TOOLS)/bin/g++
 
 # CXX_HANDLER_TRACKING = -DBOOST_ASIO_ENABLE_HANDLER_TRACKING
 
-INCLUDES = -I$(BUILD_TOOLS)/include
-CXXFLAGS = $(INCLUDES) -g  -std=c++14 $(CXX_HANDLER_TRACKING)
-CXX_LDFLAGS = -Wl,-rpath,$(BUILD_TOOLS)/lib64
+BOOST = $(DEPLOY_RUNTIME)/boost-latest
 
-LDFLAGS = -L$(BUILD_TOOLS)/lib
-BOOST = $(BUILD_TOOLS)
+INCLUDES = -I$(BOOST)/include
+CXXFLAGS = $(INCLUDES) -g  -std=c++14 $(CXX_HANDLER_TRACKING)
+CXX_LDFLAGS = -Wl,-rpath,$(BUILD_TOOLS)/lib64 -Wl,-rpath,$(BOOST)/lib
+LDFLAGS = -L$(BOOST)/lib
 
 LIBS = $(BOOST)/lib/libboost_system.a \
 	$(BOOST)/lib/libboost_filesystem.a \
