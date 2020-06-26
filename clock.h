@@ -2,6 +2,7 @@
 #define _clock_h
 
 #include <chrono>
+#include <sys/time.h>
 
 using p3_clock = std::chrono::system_clock;
 using p3_time_point = p3_clock::time_point;

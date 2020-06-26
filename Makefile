@@ -15,7 +15,7 @@ STARMAN_WORKERS = 5
 DATA_API_URL = https://p3.theseed.org/services/data_api
 APP_SERVICE_URL = https://p3.theseed.org/services/app_service
 
-BUILD_TOOLS = $(DEPLOY_RUNTIME)/build-tools
+BUILD_TOOLS = $(DEPLOY_RUNTIME)/gcc-9.3.0
 CXX = $(BUILD_TOOLS)/bin/g++
 
 # CXX_HANDLER_TRACKING = -DBOOST_ASIO_ENABLE_HANDLER_TRACKING
@@ -75,6 +75,12 @@ p3x-app-shepherd: p3x-app-shepherd.o pidinfo.o app_client.o buffer.o app_request
 
 $(TOP_DIR)/bin/%: %
 	cp $^ $@
+
+%.o: %.cpp
+	PATH=$(BUILD_TOOLS)/bin:$$PATH $(CXX) -c $< $(CXXFLAGS)
+
+%.o: %.cc
+	PATH=$(BUILD_TOOLS)/bin:$$PATH $(CXX) -c $< $(CXXFLAGS)
 
 p3x-app-shepherd.o: pidinfo.h clock.h app_client.h buffer.h app_request.h
 
