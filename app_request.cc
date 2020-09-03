@@ -160,14 +160,24 @@ void AppRequest::on_ssl_read(
     
     if(ec)
     {
-	if ((ec.category() == boost::asio::error::get_ssl_category())
-	    && (ERR_GET_REASON(ec.value()) == SSL_R_SHORT_READ))
+	if (ec.category() == boost::asio::error::get_ssl_category())
 	{
-	    // std::cerr << "SSL short read\n";
+	    std::cerr << "SSL Errror " << ERR_GET_REASON(ec.value()) << "\n";
+	    if (ERR_GET_REASON(ec.value()) == SSL_R_SHORT_READ)
+	    {
+		// std::cerr << "SSL short read\n";
+	    }
 	}
 	else
 	{
-	    return fail(ec, "read");
+	    if (ec == http::error::partial_message)
+	    {
+		// std::cerr << "skipping partial message error\n";
+	    }
+	    else
+	    {
+		return fail(ec, "read");
+	    }
 	}
     }
     
