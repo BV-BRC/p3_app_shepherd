@@ -17,6 +17,8 @@ public:
 
     void write_block(std::shared_ptr<OutputBuffer> buf);
     void write_block(const std::string &key, const std::string &value, bool truncate = false);
+
+    void exiting() { exiting_ = true; }
     
 private:
 
@@ -49,6 +51,10 @@ private:
     boost::asio::ssl::context ssl_context_;
 
     std::queue<std::shared_ptr<OutputBuffer>> buffer_queue_;
+
+    // True if we are exiting. Here, we need to reset our alarm after every block written
+    // so we don't quit before writing our output.
+    bool exiting_;
 };
 
 inline std::ostream &operator<<(std::ostream &os, AppClient::Status s)

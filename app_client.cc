@@ -22,6 +22,7 @@ AppClient::AppClient(boost::asio::io_service &ios, const std::string &url, const
 	, task_id_(task_id)
 	, status_(Status::Disabled)
 	, ssl_context_(ssl::context::sslv23_client)
+	, exiting_(false)
 {
     if (url_utilities::parse_url(url, parsed_url_))
     {
@@ -99,6 +100,9 @@ void AppClient::process_queue()
 
     if (status_ != Status::Live)
 	return;
+
+    if (exiting_)
+	alarm(60);
 
     /*
      * We are in a state where we can process the queue.

@@ -278,6 +278,7 @@ public:
 	 * Set a timer to enforce a quit out of the application if we otherwise hang.
 	 * We use the alarm signal since it's completely unconditional.
 	 */
+	app_client_->exiting();
 	signal(SIGALRM, &alarm_handler);
 	alarm(60);
     }
