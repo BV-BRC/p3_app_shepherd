@@ -280,6 +280,7 @@ public:
 	 */
 	app_client_->exiting();
 	signal(SIGALRM, &alarm_handler);
+	std::cerr << "Client exiting - set alarm\n";
 	alarm(60);
     }
 	

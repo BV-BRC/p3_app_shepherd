@@ -102,7 +102,11 @@ void AppClient::process_queue()
 	return;
 
     if (exiting_)
+    {
+	std::cerr << "AppClient::process_queue(): Client exiting - set alarm\n";
+
 	alarm(60);
+    }
 
     /*
      * We are in a state where we can process the queue.
