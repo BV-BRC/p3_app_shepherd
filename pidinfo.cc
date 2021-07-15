@@ -52,6 +52,7 @@ unsigned long PidInfo::boot_time_ = ([]() {
 PidInfo::PidInfo()
   : pid_(0)
   , ppid_(0)
+  , state_(0)
   , vm_size_(0)
   , vm_rss_(0)
   , utime_(0.0)
@@ -65,6 +66,7 @@ PidInfo::PidInfo()
 PidInfo::PidInfo(pid_t pid)
   : pid_(pid)
   , ppid_(0)
+  , state_(0)
   , vm_size_(0)
   , vm_rss_(0)
   , utime_(0.0)
@@ -112,6 +114,7 @@ PidInfo::PidInfo(pid_t pid)
 	//
 
 	try {
+	    state_ = cols[0][0];
 	    ppid_ = std::stoul(cols[1]);
 	    start_time_ = p3_clock::time_point{std::chrono::microseconds{boot_time_ * 10000 + stoul(cols[19]) * 1000000 / clock_tick_}};
 	    vm_size_ = std::stoul(cols[20]);

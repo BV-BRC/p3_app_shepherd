@@ -180,6 +180,13 @@ public:
 	}
 
 	std::cout << "tick\n";
+
+	if (!child_.running())
+	{
+	    std::cerr << "In handle_measurement: discovered child is not running\n";
+	    mark_child_finished();
+	    return;
+	}
 	measure_child();
 	
 	if (pipes_waiting_ > 0)
@@ -313,6 +320,17 @@ public:
 	*/
     }
 
+    void mark_child_finished() {
+	
+	exiting_ = true;
+	signal_set_.cancel();
+	signal_set_.clear();
+	measurement_timer_.cancel();
+	fifo_desc_.cancel();
+	kill_child_timer_.cancel();
+	child_complete();
+    }
+    
     void handle_data(const boost::system::error_code &ec, std::size_t size,
 		     bp::async_pipe &pipe,
 		     std::shared_ptr<OutputBuffer> buf) {
@@ -337,13 +355,7 @@ public:
 	    if (pipes_waiting_ == 0)
 	    {
 		std::cerr << "Child is finished\n";
-		exiting_ = true;
-		signal_set_.cancel();
-		signal_set_.clear();
-		measurement_timer_.cancel();
-		fifo_desc_.cancel();
-		kill_child_timer_.cancel();
-		child_complete();
+		mark_child_finished();
 	    }
 	}
 	else

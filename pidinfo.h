@@ -46,6 +46,8 @@ public:
     const std::string &name() const { return name_; }
     const std::string &exe() const { return exe_; }
 
+    bool zombie() const { return state_ == 'Z'; }
+
     double user_utilization(const p3_time_point &now) const;
     double sys_utilization(const p3_time_point &now) const;
     double elapsed(const p3_time_point &now) const;
@@ -55,6 +57,7 @@ public:
 private:
     pid_t pid_;
     pid_t ppid_;
+    char state_;
     std::string exe_;
     size_t vm_size_;
     size_t vm_rss_;
