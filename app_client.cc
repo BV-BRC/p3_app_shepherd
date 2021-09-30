@@ -39,7 +39,8 @@ AppClient::AppClient(boost::asio::io_service &ios, const std::string &url, const
     }
 
     ssl_context_.set_default_verify_paths();
-    ssl_context_.set_verify_mode(ssl::verify_peer);
+    ssl_context_.set_verify_mode(ssl::verify_none);
+    // ssl_context_.set_verify_mode(ssl::verify_peer);
 
     /*
     SSL_CTX *s = ssl_context_.native_handle();
