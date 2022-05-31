@@ -25,6 +25,8 @@
 
 #include <unistd.h>
 #include <netdb.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include "pidinfo.h"
 #include "app_client.h"
