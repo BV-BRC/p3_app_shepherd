@@ -163,10 +163,12 @@ void AppRequest::on_ssl_read(
 	if (ec.category() == boost::asio::error::get_ssl_category())
 	{
 	    std::cerr << "SSL Errror " << ERR_GET_REASON(ec.value()) << "\n";
+#ifdef SSL_R_SHORT_READ
 	    if (ERR_GET_REASON(ec.value()) == SSL_R_SHORT_READ)
 	    {
 		// std::cerr << "SSL short read\n";
 	    }
+#endif	    
 	}
 	else
 	{
