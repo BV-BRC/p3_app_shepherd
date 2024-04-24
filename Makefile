@@ -15,22 +15,37 @@ STARMAN_WORKERS = 5
 DATA_API_URL = https://p3.theseed.org/services/data_api
 APP_SERVICE_URL = https://p3.theseed.org/services/app_service
 
+#
+# For Ubuntu latest, we use system compiler
+#
+REL=$(shell lsb_release -i -s)$(shell lsb_release -r -s)
+ifeq ($(REL),Ubuntu22.04)
+BUILD_TOOLS=/usr
+else
 ifeq ($(wildcard $(DEPLOY_RUNTIME)/gcc-9.3.0),)
 BUILD_TOOLS = $(DEPLOY_RUNTIME)/build-tools
 else
 BUILD_TOOLS = $(DEPLOY_RUNTIME)/gcc-9.3.0
 endif
+endif
 CXX = $(BUILD_TOOLS)/bin/g++
 
 # CXX_HANDLER_TRACKING = -DBOOST_ASIO_ENABLE_HANDLER_TRACKING
 
+ifneq ($(REL),Ubuntu22.04)
 BOOST = $(DEPLOY_RUNTIME)/boost-latest
+endif
 
 INCLUDES = -I$(BOOST)/include
 CXXFLAGS = $(INCLUDES) -g  -std=c++14 $(CXX_HANDLER_TRACKING)
 CXX_LDFLAGS = -Wl,-rpath,$(BUILD_TOOLS)/lib64 -Wl,-rpath,$(BOOST)/lib
 LDFLAGS = -L$(BOOST)/lib
 
+ifeq ($(REL),Ubuntu22.04)
+	LIBS = -lboost_system -lboost_filesystem -lboost_timer -lboost_chrono \
+		-lboost_iostreams -lboost_regex -lboost_thread -lboost_program_options -lboost_system \
+		-lpthread
+else
 LIBS = $(BOOST)/lib/libboost_system.a \
 	$(BOOST)/lib/libboost_filesystem.a \
 	$(BOOST)/lib/libboost_timer.a \
@@ -41,6 +56,7 @@ LIBS = $(BOOST)/lib/libboost_system.a \
 	$(BOOST)/lib/libboost_program_options.a \
 	$(BOOST)/lib/libboost_system.a \
 	-lpthread
+endif
 
 ifdef AUTO_DEPLOY_CONFIG
 CXX_DEFINES = -DAPP_SERVICE_URL='"$(APP_SERVICE_URL)"' -DDATA_API_URL='"$(DATA_API_URL)"' -DDEPLOY_LIBDIR='"$(TARGET)/lib"'

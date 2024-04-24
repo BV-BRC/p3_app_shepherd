@@ -37,7 +37,7 @@ unsigned long PidInfo::boot_time_ = ([]() {
 	    if (line.compare(0, 6, "btime ") == 0)
 	    {
 		try {
-		    btime = std::stoul(line.substr(6));
+		    btime = std::stoull(line.substr(6));
 		} catch (std::exception &e)
 		{
 		    std::cerr << "Bad parse of " << line.substr(6) << ": " << e.what() << std::endl;
@@ -99,7 +99,7 @@ PidInfo::PidInfo(pid_t pid)
 	size_t s = line.find("(");
 	if (s == std::string::npos)
 	    goto bad;
-	size_t s2 = line.find(")", s + 1);
+	size_t s2 = line.rfind(")");
 	if (s2 == std::string::npos)
 	    goto bad;
 	name_ = line.substr(s+1, s2 - s - 1);
@@ -116,14 +116,21 @@ PidInfo::PidInfo(pid_t pid)
 	try {
 	    state_ = cols[0][0];
 	    ppid_ = std::stoul(cols[1]);
-	    start_time_ = p3_clock::time_point{std::chrono::microseconds{boot_time_ * 10000 + stoul(cols[19]) * 1000000 / clock_tick_}};
+	    start_time_ = p3_clock::time_point{std::chrono::microseconds{boot_time_ * 10000 + stoull(cols[19]) * 1000000 / clock_tick_}};
 	    vm_size_ = std::stoul(cols[20]);
 	    vm_rss_ = std::stoul(cols[21]) * page_size_;
 	    utime_ = (double) std::stoul(cols[11]) / clock_tick_;
 	    stime_ = (double) std::stoul(cols[12]) / clock_tick_;
-	} catch (std::exception &e)
+	}
+	catch (std::out_of_range &e)
 	{
-	    std::cerr << "Bad parse of " << status_path << ": " << e.what() << std::endl;
+	    std::cerr << "Out of range" << status_path << ": " << e.what() << std::endl;
+	    std::cerr << line << "\n";
+	}
+	catch (std::invalid_argument  &e)
+	{
+	    std::cerr << "Invalid argument " << status_path << ": " << e.what() << std::endl;
+	    std::cerr << line << "\n";
 	}
     }
     return;
