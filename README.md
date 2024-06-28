@@ -1,4 +1,4 @@
-# PATRIC application execution shepherd
+# BV-BRC application execution shepherd
 
 ## Overview
 
